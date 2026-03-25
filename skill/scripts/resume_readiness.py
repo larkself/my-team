@@ -22,6 +22,12 @@ def main() -> int:
     payload = workspace_resume_snapshot(workspace_root, state_root)
     if payload.get("all_completed"):
         payload["recommendation"] = "所有任务已完成，无需恢复；如有新任务请直接创建"
+    elif payload.get("incomplete_tasks"):
+        ids = ", ".join(sorted(payload["incomplete_tasks"]))
+        payload["recommendation"] = (
+            f"以下任务归档不完整，需先修复再继续：{ids}。"
+            "对每个不完整的任务执行 init_task.py <task-id> --repair ... 补齐缺失文件"
+        )
     elif payload["ready"]:
         payload["recommendation"] = "可以恢复当前任务"
     elif payload.get("missing_state_files"):

@@ -86,6 +86,23 @@ When all subtasks under a main task are completed, the team leader must perform 
 - `current.md` 的 Snapshot 停留在旧阶段（如 analysis），让下一次恢复误判
 - ledger 里的主任务 status 不是 completed，导致 `render_summary.py` 仍把它列为进行中
 
+## Task Scaffold Repair
+
+当 `resume_readiness.py` 报告 `incomplete_tasks`（ledger 已有条目但任务目录缺文件）时，team leader 应立即修复再继续：
+
+```bash
+python3 scripts/init_task.py <task-id> --repair --goal '目标' --scope '范围'
+```
+
+- `--repair` 会跳过"已存在"检查，用 `ensure_task_scaffold` 补齐缺失文件并重写 state.json 和 ledger 条目
+- 修复后 `resume_readiness.py` 的 `incomplete_tasks` 应为空
+- 如果修复目标是子任务，改用 `create_subtask.py`（它本身在 scaffold 阶段就是幂等的）
+
+常见触发场景：
+- `init_task.py` 在中途被中断（ledger 已写但文件未全部创建）
+- 子任务的 `sync_task_to_ledger` 自动为父任务插入 ledger 占位条目，但目录不完整
+- CI / 网络断开导致终端命令只执行了一半
+
 ## Member Loop
 
 1. 加载任务目录

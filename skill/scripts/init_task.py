@@ -13,6 +13,7 @@ from orchestrator_common import (
     task_dir,
     task_file_map,
     utc_now,
+    verify_task_integrity,
     write_json,
 )
 
@@ -45,6 +46,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         help="Repeatable dependency task ID or note",
     )
+    parser.add_argument(
+        "--repair",
+        action="store_true",
+        help="Repair an existing task whose scaffold is incomplete (ledger entry exists but files are missing)",
+    )
     return parser
 
 
@@ -52,8 +58,18 @@ def main() -> int:
     args = build_parser().parse_args()
     state_root = ensure_state_root(args.state_root)
     task_path = task_dir(state_root, args.task_id)
+
+    repairing = False
     if task_path.exists():
-        raise SystemExit(f"Task already exists: {task_path}")
+        if not args.repair:
+            missing = verify_task_integrity(state_root, args.task_id)
+            if missing:
+                raise SystemExit(
+                    f"Task {args.task_id} exists but is incomplete (missing: {', '.join(missing)}). "
+                    f"Re-run with --repair to fix it."
+                )
+            raise SystemExit(f"Task already exists: {task_path}")
+        repairing = True
 
     now = utc_now()
     state = {
@@ -75,24 +91,37 @@ def main() -> int:
         "updated_at": now,
     }
 
+    # If repairing, preserve created_at from existing state.json when available.
+    if repairing:
+        existing_state_path = task_file_map(state_root, args.task_id)["state"]
+        if existing_state_path.exists():
+            import json
+            existing = json.loads(existing_state_path.read_text(encoding="utf-8"))
+            if existing.get("created_at"):
+                state["created_at"] = existing["created_at"]
+
+    # ensure_task_scaffold is idempotent — only creates files that don't exist.
     paths = ensure_task_scaffold(state_root, state)
     persist_state_snapshot(state_root, args.task_id, state)
     write_json(paths["steps"], {"task_id": args.task_id, "updated_at": now, "steps": []})
 
+    event_type = "task_repaired" if repairing else "task_received"
     append_jsonl(
         task_file_map(state_root, args.task_id)["events"],
         {
             "ts": now,
-            "type": "task_received",
+            "type": event_type,
             "task_id": args.task_id,
             "goal": args.goal,
             "phase": args.phase,
             "status": args.status,
         },
     )
-    append_progress_log(paths["progress"], f"任务已创建，当前阶段为 {args.phase}。", ts=now)
+    log_msg = f"任务已修复，当前阶段为 {args.phase}。" if repairing else f"任务已创建，当前阶段为 {args.phase}。"
+    append_progress_log(paths["progress"], log_msg, ts=now)
 
-    print(f"Initialized task {args.task_id} at {task_path}")
+    verb = "Repaired" if repairing else "Initialized"
+    print(f"{verb} task {args.task_id} at {task_path}")
     return 0
 
 

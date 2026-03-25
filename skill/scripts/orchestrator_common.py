@@ -451,6 +451,17 @@ def workspace_resume_snapshot(
         if missing:
             missing_task_artifacts[task_id] = missing
 
+    # Check ALL ledger tasks for incomplete scaffolds (directory exists
+    # but core files missing, or directory absent entirely).
+    incomplete_tasks: dict[str, list[str]] = {}
+    for task in ledger.get("tasks", {}).values():
+        tid = task.get("task_id")
+        if not tid:
+            continue
+        missing_core = verify_task_integrity(state_root, tid)
+        if missing_core:
+            incomplete_tasks[tid] = missing_core
+
     resume_owner = None
     resume_task_id = None
     if current_task:
@@ -476,6 +487,7 @@ def workspace_resume_snapshot(
             and not workspace_status["missing_files"]
             and not workspace_status["roles_missing"]
             and not missing_task_artifacts
+            and not incomplete_tasks
         )
     return {
         "workspace_root": str(workspace_root),
@@ -490,6 +502,7 @@ def workspace_resume_snapshot(
         "missing_workspace_roles": workspace_status["roles_missing"],
         "missing_state_files": [] if ledger_exists else ["ledger.json"],
         "missing_task_artifacts": missing_task_artifacts,
+        "incomplete_tasks": incomplete_tasks,
         "active_task_ids": [task.get("task_id") for task in active_tasks if task.get("task_id")],
     }
 
@@ -960,6 +973,13 @@ def ensure_discussion_scaffold(state_root: Path, state: dict[str, Any]) -> dict[
     if not paths["messages"].exists():
         paths["messages"].touch()
     return paths
+
+
+def verify_task_integrity(state_root: Path, task_id: str) -> list[str]:
+    """Return names of files that should exist for *task_id* but are missing."""
+    paths = task_file_map(state_root, task_id)
+    core = ["task", "state", "progress", "handoff", "brief", "events", "steps"]
+    return [name for name in core if not paths[name].exists()]
 
 
 def ensure_task_scaffold_if_missing(state_root: Path, state: dict[str, Any]) -> dict[str, Path]:

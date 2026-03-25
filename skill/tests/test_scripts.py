@@ -33,6 +33,7 @@ class ScriptCliTests(unittest.TestCase):
         *args: str,
         workspace: Path | None = None,
         input_text: str | None = None,
+        check: bool = True,
     ) -> subprocess.CompletedProcess[str]:
         command = [
             sys.executable,
@@ -48,7 +49,7 @@ class ScriptCliTests(unittest.TestCase):
             text=True,
             input=input_text,
             capture_output=True,
-            check=True,
+            check=check,
         )
 
     def run_chat_script(
@@ -1299,6 +1300,48 @@ class ScriptCliTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         combined_output = result.stdout + result.stderr
         self.assertIn("OK", combined_output)
+
+    def test_init_task_repair_fixes_incomplete_scaffold(self) -> None:
+        """When ledger has an entry but the task directory is incomplete,
+        init_task.py --repair should backfill missing files and resume_readiness
+        should report the task as healthy afterwards."""
+        self.run_script("bootstrap_workspace.py", workspace=self.workspace)
+
+        # Create a child task (T-100-1) that auto-scaffolds parent T-100 via
+        # sync_task_to_ledger — this simulates the "ledger occupied but directory
+        # incomplete" scenario because the auto-scaffold creates minimal files.
+        self.run_script(
+            "create_subtask.py", "T-100-1",
+            "--parent-task-id", "T-100",
+            "--task-type", "analysis",
+            "--goal", "子任务分析",
+            workspace=self.workspace,
+        )
+
+        # The parent T-100 now has a ledger entry + auto-scaffolded directory,
+        # but it was created with placeholder defaults. A normal init would fail.
+        fail_result = self.run_script("init_task.py", "T-100", "--goal", "主任务目标", "--scope", "全局", check=False)
+        self.assertNotEqual(fail_result.returncode, 0)
+
+        # With --repair, init should succeed and overwrite the placeholder state.
+        repair_result = self.run_script(
+            "init_task.py", "T-100", "--repair",
+            "--goal", "主任务目标", "--scope", "全局",
+            "--acceptance-criterion", "可运行",
+        )
+        self.assertEqual(repair_result.returncode, 0, repair_result.stderr)
+        self.assertIn("Repaired", repair_result.stdout)
+
+        # Verify the repaired state.json has the correct goal and scope.
+        state_path = self.state_root / "tasks" / "T-100" / "state.json"
+        state = json.loads(state_path.read_text())
+        self.assertEqual(state["goal"], "主任务目标")
+        self.assertEqual(state["scope"], "全局")
+
+        # resume_readiness should report no incomplete_tasks.
+        ready_result = self.run_script("resume_readiness.py", workspace=self.workspace)
+        ready_payload = json.loads(ready_result.stdout)
+        self.assertEqual(ready_payload.get("incomplete_tasks", {}), {})
 
 
 if __name__ == "__main__":
