@@ -7,12 +7,14 @@
 ## 功能特性
 
 - **Team Leader + Member 协作模型**：team leader coordinating and reporting progress，Member 负责具体执行
+- **真正的子 Agent 并行执行**：通过 `runSubagent` 调度独立的子 agent 执行成员工作，而非顺序角色扮演
 - **member-first analysis**：Team Leader 优先委派一个 member 完成需求拆解，再分发实现任务
 - **members handling analysis, design, coding, and testing**：同时支持 review/docs/release/integration 等扩展角色
 - **8 种标准角色**：使用 task-type matched member names —— `member-analysis`、`member-design`、`member-coding`、`member-testing`、`member-review`、`member-docs`、`member-release`、`member-integration`
 - **同角色多实例**：同一角色可并行多个实例（如 `member-coding-1`、`member-coding-2`）
 - **成员间讨论机制**：支持 consult/sync 模式的结构化讨论，决议可回写关联任务
 - **Workspace 持久层**：跨会话保持团队契约、记忆、角色说明等长期状态
+- **统一 `.my-team/` 目录**：所有 skill 运行时文件放在项目根的 `.my-team/` 下，和项目自身文件隔离
 - **任务全生命周期管理**：从 received → analysis → design → planning → executing → reporting → completed，支持 interrupted 和 revising
 - **结构化 Artifact 落盘**：分析、设计、计划、结果等文档持续写入磁盘
 - **检查点与恢复**：支持 checkpoint、revision 和 resume readiness 检查
@@ -120,7 +122,7 @@ python3 install_copilot.py --project /path/to/your/project --force
 |--------|-----------|----------------|
 | Skill 名称 | `my-team` | 否（固定） |
 | 安装路径 | `$CODEX_HOME/skills/my-team` | 是（可通过 `--codex-home` 调整） |
-| Workspace 根目录 | 当前工作目录 | 是（首次使用时确认） |
+| Workspace 根目录 | `.my-team/` (项目根目录下) | 是（首次使用时确认） |
 | 用户文档语言 | 简体中文 | 否 |
 | 内部笔记语言 | English | 否 |
 
@@ -154,20 +156,20 @@ python3 -m unittest discover -s tests -v
 激活后，主 agent 会作为 Team Leader 运行：
 
 1. **接收需求**：分析用户提出的任务，确认需要用户提供或确认的信息
-2. **委派分析**：先分配一个 `member-analysis` 进行需求拆解
-3. **分发任务**：根据分析结果，把实现、测试等任务分配给对应角色的 member
+2. **委派分析**：先用 `create_subtask.py` 创建分析子任务，再通过 `runSubagent` 调度一个真正的 `member-analysis` 子 agent 执行需求拆解
+3. **分发任务**：根据分析结果，为每个实现/测试任务创建子任务并通过 `runSubagent` 分发给对应角色的 member；独立任务可**并行**调度
 4. **协调推进**：跟踪各 member 进展，处理阻塞，协调成员间讨论
 5. **汇报状态**：及时向用户报告进展、完成情况和阻塞项
 
 ### Workspace 初始化
 
-对于需要跨会话持久化的长期任务，Team Leader 会先初始化 workspace：
+对于需要跨会话持久化的长期任务，Team Leader 会先在项目根目录下初始化 `.my-team/` workspace：
 
 ```bash
-python3 scripts/bootstrap_workspace.py --workspace-root /path/to/workspace
+python3 scripts/bootstrap_workspace.py --workspace .my-team
 ```
 
-这会创建 `TEAM.md`、`MEMORY.md`、`USER_CONTEXT.md`、`ROLES/`、`INBOX.md`、`SESSIONS/` 等持久化文件。
+这会在 `.my-team/` 下创建 `TEAM.md`、`MEMORY.md`、`USER_CONTEXT.md`、`ROLES/`、`INBOX.md`、`SESSIONS/` 等持久化文件。任务状态保存在 `.my-team/orchestrator-state/` 下。
 
 ### 常用脚本说明
 

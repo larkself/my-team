@@ -10,6 +10,7 @@
 - 多子任务并行时，缺少统一 artifact 会让状态难追踪
 - 任务分析、设计、计划、执行和结果如果不落盘，就很难解释"为什么这样做"
 - 如果没有长期 workspace 和 memory，team leader 只能记住当前任务，无法稳定延续用户偏好、确认过的 workspace 和恢复线索
+- 如果 skill 产生的文件和项目自身文件混在一起，会污染项目目录结构
 
 ## 关键要求
 
@@ -33,8 +34,11 @@
 - 真实团队里 member 之间还会围绕接口、依赖和验证口径直接讨论，因此 skill 需要可审计的 member-to-member discussion，而不是把所有讨论都强制经过 team leader 转发
 - 创建子任务、分配 member、初始化 handoff 和 progress 的动作应尽量收敛到单一入口，减少手工拼装状态的风险
 - 长期 agent 还需要 workspace bootstrap、persistent memory 和 resume readiness 这三层能力，把"长期在线"和"可恢复"变成正式契约
+- 在 VS Code Copilot 中，team leader 应使用 `runSubagent` 调度真正的子 agent 来执行 member 工作，实现真正的并行执行
 
 ## Workspace / Memory
+
+- 所有 skill 运行时文件统一放在项目根目录的 `.my-team/` 下，和项目自身文件隔离
 
 - `TEAM.md` 记录长期协作契约，包含 team leader 的边界、恢复规则和升级规则
 - `MEMORY.md` 记录跨任务保留的事实、决策、偏好和约束

@@ -15,10 +15,12 @@
 - team leader 需要把任务分配给了谁、完成情况如何、还有哪些阻塞及时反馈给用户
 - member 之间的直接讨论应通过 discussion artifact 进行，而不是无记录聊天；讨论必须能关联任务、参与者和最终决议
 - 启动 my-team 模式后，除非收到退出指令，否则持续按该模式调度成员
+- 在 VS Code Copilot 中，team leader 应使用 `runSubagent` 来调度真正的子 agent 执行 member 工作，而不是顺序地角色扮演不同成员；独立任务应并行发出多个 `runSubagent` 调用
 
 ## Workspace / Memory
 
-- 长期 agent 需要一个用户确认过的 workspace 根目录，用来保存跨任务、跨会话的长期状态
+- 长期 agent 需要一个用户确认过的 workspace 根目录（默认 `.my-team/`），用来保存跨任务、跨会话的长期状态
+- 所有 skill 运行时文件统一放在 `.my-team/` 下，和项目自身文件隔离
 - `TEAM.md` 负责长期协作契约和恢复规则
 - `MEMORY.md` 负责保存事实、决策、偏好和约束
 - `USER_CONTEXT.md` 负责保存 workspace、仓库、安装路径和环境约定

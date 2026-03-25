@@ -20,9 +20,9 @@ class ScriptCliTests(unittest.TestCase):
 
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.state_root = Path(self.temp_dir.name) / "orchestrator-state"
-        self.workspace = Path(self.temp_dir.name) / "workspace"
+        self.workspace = Path(self.temp_dir.name) / ".my-team"
         self.workspace.mkdir(parents=True, exist_ok=True)
+        self.state_root = self.workspace / "orchestrator-state"
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
@@ -988,7 +988,7 @@ class ScriptCliTests(unittest.TestCase):
         self.assertIn("For any task, first analyze which information the user must provide or confirm", skill_text)
         self.assertIn("judge which skill-level or task-level documents may be stale", skill_text)
         self.assertIn("record what was considered, what was updated", skill_text)
-        self.assertIn("append the main-agent reply to `ai-chat/YYYY-MM-DD.md`", skill_text)
+        self.assertIn("append the main-agent reply to `.my-team/ai-chat/YYYY-MM-DD.md`", skill_text)
         self.assertIn("team leader", skill_text)
         self.assertIn("member", skill_text)
         self.assertIn("member-analysis", skill_text)

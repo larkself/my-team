@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 STATE_ROOT_NAME = "orchestrator-state"
-WORKSPACE_ROOT_NAME = "workspace"
+SKILL_DIR_NAME = ".my-team"
 VALID_PHASES = {
     "received",
     "analysis",
@@ -61,15 +61,15 @@ def local_time_str() -> str:
 def resolve_state_root(raw_path: str | None) -> Path:
     if raw_path:
         return Path(raw_path).expanduser().resolve()
-    return (Path.cwd() / STATE_ROOT_NAME).resolve()
+    return (Path.cwd() / SKILL_DIR_NAME / STATE_ROOT_NAME).resolve()
 
 
 def resolve_workspace_root(raw_path: str | None, *, state_root: Path | None = None) -> Path:
     if raw_path:
         return Path(raw_path).expanduser().resolve()
     if state_root is not None:
-        return (state_root.parent / WORKSPACE_ROOT_NAME).resolve()
-    return Path.cwd().resolve()
+        return state_root.parent.resolve()
+    return (Path.cwd() / SKILL_DIR_NAME).resolve()
 
 
 def default_ledger() -> dict[str, Any]:

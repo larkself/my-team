@@ -61,25 +61,28 @@ Prefer the local scripts in `scripts/` over handwritten edits to machine-readabl
 
 ## Workspace Layer
 
-Use a confirmed workspace root when the task needs durable state across sessions, not just repository-local artifacts. The workspace should bootstrap into a small set of long-lived files:
+All skill runtime files live under `.my-team/` in the project root, keeping them separate from the project's own source files. The workspace root is `.my-team/` and the orchestrator state root is `.my-team/orchestrator-state/`.
+
+The workspace should bootstrap into a small set of long-lived files:
 
 ```text
-TEAM.md
-MEMORY.md
-USER_CONTEXT.md
-ROLES/
-  leader.md
-  member-analysis.md
-  member-design.md
-  member-coding.md
-  member-testing.md
-  member-review.md
-  member-docs.md
-  member-release.md
-  member-integration.md
-INBOX.md
-SESSIONS/
-  current.md
+.my-team/
+  TEAM.md
+  MEMORY.md
+  USER_CONTEXT.md
+  ROLES/
+    leader.md
+    member-analysis.md
+    member-design.md
+    member-coding.md
+    member-testing.md
+    member-review.md
+    member-docs.md
+    member-release.md
+    member-integration.md
+  INBOX.md
+  SESSIONS/
+    current.md
 ```
 
 - `TEAM.md` records the long-running operating contract, escalation rules, and workspace assumptions
@@ -102,18 +105,78 @@ The team leader should bootstrap the workspace before the first long-lived sessi
 1. Use `suggest_doc_updates.py` to judge which skill-level or task-level documents may be stale.
 2. Refresh the affected documents.
 3. Use `record_doc_refresh.py` to record what was considered, what was updated, and whether the decision was `updated`, `checked`, or `not_needed`.
-4. After artifact-based summarization, append the main-agent reply to `ai-chat/YYYY-MM-DD.md` with `log_chat_turn.py`; in this skill the main agent acts as the team leader.
+4. After artifact-based summarization, append the main-agent reply to `.my-team/ai-chat/YYYY-MM-DD.md` with `log_chat_turn.py`; in this skill the main agent acts as the team leader.
+
+## Sub-Agent Dispatch
+
+In VS Code Copilot, the team leader must use `runSubagent` to dispatch real sub-agents for member work instead of role-playing different members sequentially. This enables true parallel execution.
+
+### Dispatch Rules
+
+- Before dispatching, use `create_subtask.py` to create the task directory and record member assignment
+- Use `runSubagent` to invoke a new agent for each member task; include the task context, role instructions, script paths, and expected deliverables in the prompt
+- Independent member tasks (e.g., two different coding subtasks) should be dispatched in **parallel** by calling `runSubagent` multiple times simultaneously
+- Dependent tasks (e.g., testing depends on coding completion) should be dispatched **sequentially** after the predecessor completes
+- The sub-agent prompt must tell the member which scripts to use, where the state-root and workspace are, and what artifacts to produce
+- When the sub-agent returns, the team leader should read the updated task artifacts and summary, then report progress to the user
+
+### Dispatch Prompt Template
+
+When calling `runSubagent`, construct the prompt like this:
+
+```
+You are {member_role_name}, a team member in a my-team skill workspace.
+
+Task: {task_id}
+Goal: {goal}
+Scope: {scope}
+Parent task: {parent_task_id}
+
+Workspace root: {workspace_root}  (under .my-team/)
+State root: {state_root}  (under .my-team/orchestrator-state/)
+Scripts directory: {scripts_dir}
+
+Your job:
+1. Read the task directory at {state_root}/tasks/{task_id}/
+2. Perform the {task_type} work described in the goal
+3. Write your analysis/design/code/test results using the scripts:
+   - write_analysis.py / write_design.py / write_plan.py / write_result.py
+   - update_state.py to advance phase
+   - update_step.py to track progress
+   - checkpoint_task.py when reaching milestones
+4. Update handoff.en.md with recovery info when done
+
+Return a brief summary of what was accomplished, what remains, and any blockers.
+```
+
+### Example
+
+```python
+# Team leader creates the subtask first
+run_in_terminal("python3 scripts/create_subtask.py T-002 --parent-task-id T-001 --task-type analysis --goal '分析用户需求' --workspace .my-team")
+
+# Then dispatches real sub-agent
+runSubagent(
+    prompt="You are member-analysis... (full context)",
+    description="analysis for T-002"
+)
+
+# For parallel coding tasks
+runSubagent(prompt="You are member-coding (T-003)...", description="coding T-003")  # parallel
+runSubagent(prompt="You are member-coding (T-004)...", description="coding T-004")  # parallel
+```
 
 ## Operating Rules
 
+- All skill runtime files (workspace, orchestrator-state, ai-chat, etc.) live under the `.my-team/` directory in the project root, keeping them separate from the project's own files
 - Keep user-facing documents in Simplified Chinese
 - Keep internal agent notes in English under `internal/`
 - Keep state in JSON or JSONL
-- Log every user and team leader turn to `ai-chat/YYYY-MM-DD.md`
+- Log every user and team leader turn to `.my-team/ai-chat/YYYY-MM-DD.md`
 - Checkpoint after receiving work, after analysis, after design, after planning, before execution, after execution, when blocked, when interrupted, and before final reporting
 - For any task, first analyze which information the user must provide or confirm
 - Prefer proposing recommended defaults before asking the user to confirm them
-- The team leader should not personally write code, perform analysis or design, or run testing work; those activities should be assigned to team members
+- The team leader should not personally write code, perform analysis or design, or run testing work; those activities should be dispatched to team members via `runSubagent`
 - The team leader should focus on planning, delegation, coordination, conflict resolution, and timely progress reporting
 - For each task, the team leader should consider one member for initial decomposition first, then fan out work to other members after the breakdown is returned
 - When creating or referring to a member, use a task-type-matched role name such as `member-analysis`, `member-design`, `member-coding`, `member-testing`, `member-review`, `member-docs`, `member-release`, or `member-integration`
@@ -121,7 +184,7 @@ The team leader should bootstrap the workspace before the first long-lived sessi
 - Keep `member_role_name` as the canonical role identity; if the same role needs parallel workers, use distinct `owner_agent_id` values such as `member-coding-1` and `member-coding-2`
 - The team leader should explicitly report which member owns which task, what the current completion status is, and what remains blocked or in progress
 - The team leader should prefer `create_subtask.py` when creating a new child task so parent linkage, member assignment, and initial handoff stay consistent
-- Members may open direct consult/sync discussions with other members, but the discussion must be recorded under `orchestrator-state/discussions/<discussion-id>` instead of becoming free-form chat
+- Members may open direct consult/sync discussions with other members, but the discussion must be recorded under `.my-team/orchestrator-state/discussions/<discussion-id>` instead of becoming free-form chat
 - Use `create_discussion.py`, `post_discussion_message.py`, and `resolve_discussion.py` for member-to-member discussion so participants, messages, linked tasks, and decisions remain auditable
 - The team leader should keep a confirmed workspace root for long-lived state, bootstrap it when missing, and update workspace memory after durable decisions
 - The team leader should use `bootstrap_workspace.py`, `update_memory.py`, and `resume_readiness.py` to manage persistent workspace state and recoverability
@@ -130,26 +193,33 @@ The team leader should bootstrap the workspace before the first long-lived sessi
 - The only valid task phases are `received`, `analysis`, `design`, `planning`, `executing`, `reporting`, `completed`, `interrupted`, and `revising`; do not invent `intake` or other phase names
 - `handoff.en.md` is a formal internal transition record for team members, not a scaffold placeholder; describe remaining work, blockers, next actions, and ownership without exposing internal template language to the user
 - Member task types are standardized across analysis, design, coding, testing, review, docs, release, and integration
-- Every child task must have a real archive under `orchestrator-state/tasks/<task-id>`; ledger entries alone are not enough for recovery or audit
+- Every child task must have a real archive under `.my-team/orchestrator-state/tasks/<task-id>`; ledger entries alone are not enough for recovery or audit
 - If a parent task is first discovered through child-task linkage, create its corresponding task directory as well so the parent can be recovered and audited like any other task
 
 ## Expected Layout
 
 ```text
-ai-chat/
-  2026-03-23.md
-
-orchestrator-state/
-  doc-refresh.jsonl
-  ledger.json
-  discussions/
-    D-001/
-      ...
-  tasks/
-    T-001/
-      ...
-    T-002/
-      ...
+.my-team/
+  TEAM.md
+  MEMORY.md
+  USER_CONTEXT.md
+  ROLES/
+  INBOX.md
+  SESSIONS/
+    current.md
+  ai-chat/
+    2026-03-23.md
+  orchestrator-state/
+    doc-refresh.jsonl
+    ledger.json
+    discussions/
+      D-001/
+        ...
+    tasks/
+      T-001/
+        ...
+      T-002/
+        ...
 ```
 
 ## Validation
