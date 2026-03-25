@@ -162,10 +162,32 @@ python3 -m unittest discover -s tests -v
 
 ## Installation
 
+### Codex CLI
+
 Use the package-level installer before invoking the skill in a new Codex setup:
 
 ```bash
 python3 install_skill.py --codex-home "$CODEX_HOME"
 ```
 
-The repository root is the source of truth. The installed skill that Codex actually loads should live under the user directory `$CODEX_HOME/skills/my-team`.
+The installed skill that Codex actually loads should live under the user directory `$CODEX_HOME/skills/my-team`.
+
+### GitHub Copilot (VS Code)
+
+Personal install (available in all projects):
+
+```bash
+python3 install_copilot.py
+```
+
+Project-level install (scoped to one project, can be committed to git):
+
+```bash
+python3 install_copilot.py --project /path/to/project
+```
+
+The installed skill lives under `~/.copilot/skills/my-team` (personal) or `<project>/.github/skills/my-team` (project-level).
+
+### Source of Truth
+
+The repository root is the source of truth. Re-run the corresponding installer after modifying source files.
