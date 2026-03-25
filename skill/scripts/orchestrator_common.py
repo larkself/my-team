@@ -458,19 +458,32 @@ def workspace_resume_snapshot(
         owner = current_task.get("owner_agent_id") or current_task.get("member_role_name") or "main"
         resume_owner = "team leader" if owner in {"main", "unassigned"} else owner
 
-    ready = (
-        ledger_exists
-        and bool(active_tasks)
-        and not workspace_status["missing_files"]
-        and not workspace_status["roles_missing"]
-        and not missing_task_artifacts
+    all_tasks = list(ledger.get("tasks", {}).values())
+    all_completed = all_tasks and all(
+        task.get("status") in {"completed", "cancelled"} for task in all_tasks
     )
+
+    if all_completed:
+        ready = (
+            ledger_exists
+            and not workspace_status["missing_files"]
+            and not workspace_status["roles_missing"]
+        )
+    else:
+        ready = (
+            ledger_exists
+            and bool(active_tasks)
+            and not workspace_status["missing_files"]
+            and not workspace_status["roles_missing"]
+            and not missing_task_artifacts
+        )
     return {
         "workspace_root": str(workspace_root),
         "state_root": str(state_root),
         "workspace_ready": not workspace_status["missing_files"] and not workspace_status["roles_missing"],
         "state_ready": ledger_exists,
         "ready": ready,
+        "all_completed": all_completed,
         "current_task_id": resume_task_id,
         "resume_owner": resume_owner or "team leader",
         "missing_workspace_files": workspace_status["missing_files"],

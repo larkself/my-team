@@ -20,7 +20,9 @@ def main() -> int:
     state_root = resolve_state_root(args.state_root) if args.state_root else resolve_state_root(None)
     workspace_root = resolve_workspace_root(args.workspace, state_root=state_root)
     payload = workspace_resume_snapshot(workspace_root, state_root)
-    if payload["ready"]:
+    if payload.get("all_completed"):
+        payload["recommendation"] = "所有任务已完成，无需恢复；如有新任务请直接创建"
+    elif payload["ready"]:
         payload["recommendation"] = "可以恢复当前任务"
     elif payload.get("missing_state_files"):
         payload["recommendation"] = "先补齐 orchestrator-state 的基础文件，再恢复当前任务"

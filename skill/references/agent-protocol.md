@@ -71,6 +71,21 @@ Team leader constraints:
 - consult resume readiness before resuming a suspended workspace session
 - keep `MEMORY.md` for durable memory, `SESSIONS/current.md` for the current session, and `resume_readiness.py` for recovery checks
 
+## Task Close-Out
+
+When all subtasks under a main task are completed, the team leader must perform an explicit close-out:
+
+1. 用 `update_state.py` 把主任务的 phase 和 status 都更新为 `completed`
+2. 用 `checkpoint_task.py` 记录最终 checkpoint（含 `--phase completed`）
+3. 用 `write_result.py` 写入主任务的结果汇总
+4. 把最终汇报追加到 `ai-chat/YYYY-MM-DD.md`
+5. 更新 `SESSIONS/current.md` 的 Snapshot 为 completed 状态
+
+未完成 close-out 的常见后果：
+- `resume_readiness.py` 报告"仍有活跃任务"即使所有工作已完成
+- `current.md` 的 Snapshot 停留在旧阶段（如 analysis），让下一次恢复误判
+- ledger 里的主任务 status 不是 completed，导致 `render_summary.py` 仍把它列为进行中
+
 ## Member Loop
 
 1. 加载任务目录
