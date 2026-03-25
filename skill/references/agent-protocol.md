@@ -6,6 +6,14 @@
 - `internal/brief.en.md` 与 `internal/handoff.en.md` 使用英文
 - `state.json`、`steps.json`、`events.jsonl` 使用结构化格式
 
+## Task ID Naming Convention
+
+- 主任务使用顶层编号：`T-001`、`T-002`、`T-003`...
+- 子任务使用 `父任务ID-序号` 层级格式：`T-001-1`、`T-001-2`、`T-001-3`...
+- 嵌套子任务继续追加层级：`T-001-1-1`、`T-001-1-2`...
+- 同一父任务下的子任务按创建顺序递增
+- 例如：主任务 `T-001` 有分析子任务 `T-001-1`、设计子任务 `T-001-2`、编码子任务 `T-001-3`、测试子任务 `T-001-4`
+
 ## Team Leader Loop
 
 1. 记录用户消息到 `.my-team/ai-chat/YYYY-MM-DD.md`
@@ -13,20 +21,22 @@
 3. 判断 skill 级文档是否需要刷新
 4. 先分析哪些信息需要用户提供或确认，并优先准备推荐值，同时把长期事实、偏好和约束写入 `MEMORY.md`
 5. 读取 `ledger.json`、`SESSIONS/current.md` 和受影响任务
-6. 先用 `create_subtask.py` 创建子任务，再用 `runSubagent` 调度真正的子 agent 来执行 member 工作；独立的成员任务应并行发出多个 `runSubagent` 调用
-7. 只在边界清晰时把分析、设计、开发、测试等工作交给 member
-8. 基于 artifact 汇总后再对用户输出，并把主 Agent 回复追加到当日聊天日志；在这个 skill 里主 Agent 充当 team leader
-9. 持续向用户汇报任务进展、阻塞点和下一步协调动作
-10. 及时反馈"任务分配给了谁""当前完成情况如何""哪些任务仍在进行、等待或阻塞"
-11. 一旦收到启动 `my-team` skill 的指令，就持续按 my-team 模式执行，直到收到"退出 my-team 模式"的明确指令
-12. 只使用合法阶段 `received`、`analysis`、`design`、`planning`、`executing`、`reporting`、`completed`、`interrupted`、`revising`，不要引入 `intake` 或其他未定义阶段
-13. 每个子任务都必须在 `.my-team/orchestrator-state/tasks/<task-id>` 下有实体存档；`ledger.json` 只能记录索引，不能替代任务目录
-14. 如果父任务是通过子任务关系首次被发现，也要为该父任务创建对应任务目录，保证恢复、审计和上下文续接都可用
-15. 创建或引用 member 时，必须使用和任务类型匹配的角色名，例如 `member-analysis`、`member-design`、`member-coding`、`member-testing`、`member-review`、`member-docs`、`member-release`、`member-integration`；即使工具返回不同的系统昵称，对外汇报和内部交接也要沿用任务类型匹配的角色名
-16. `member_role_name` 代表 canonical role；如果同一 role 需要并行多个 agent，应保持 `member_role_name` 不变，并使用不同的 `owner_agent_id`，例如 `member-coding-1`、`member-coding-2`
-17. 创建子任务时优先使用 `create_subtask.py`，把父子关系、member 分配、初始 progress 和 handoff 一次性落盘
-18. team leader 应优先使用 `create_subtask.py` 来一次性完成父子关系、member 分配和初始交接的落盘；汇报时继续沿用任务类型匹配的成员角色名
-19. member 之间允许直接发起 `consult` 或 `sync` 讨论，但讨论必须通过 `create_discussion.py`、`post_discussion_message.py`、`resolve_discussion.py` 落盘到 `.my-team/orchestrator-state/discussions/<discussion-id>`
+6. **先用 `init_task.py` 创建主任务**（含 goal、scope、acceptance-criterion），确保主任务有完整的 artifact 存档，**然后**再用 `create_subtask.py` 创建子任务；不要跳过 `init_task.py` 直接创建子任务，否则父任务会被隐式补建为空壳
+7. 用 `create_subtask.py` 创建子任务后，用 `runSubagent` 调度真正的子 agent 来执行 member 工作；独立的成员任务应并行发出多个 `runSubagent` 调用
+8. 只在边界清晰时把分析、设计、开发、测试等工作交给 member
+9. 基于 artifact 汇总后再对用户输出，并把主 Agent 回复追加到当日聊天日志；在这个 skill 里主 Agent 充当 team leader
+10. 持续向用户汇报任务进展、阻塞点和下一步协调动作
+11. 及时反馈"任务分配给了谁""当前完成情况如何""哪些任务仍在进行、等待或阻塞"
+12. 一旦收到启动 `my-team` skill 的指令，就持续按 my-team 模式执行，直到收到"退出 my-team 模式"的明确指令
+13. 只使用合法阶段 `received`、`analysis`、`design`、`planning`、`executing`、`reporting`、`completed`、`interrupted`、`revising`，不要引入 `intake` 或其他未定义阶段
+14. 每个子任务都必须在 `.my-team/orchestrator-state/tasks/<task-id>` 下有实体存档；`ledger.json` 只能记录索引，不能替代任务目录
+15. 如果父任务是通过子任务关系首次被发现，也要为该父任务创建对应任务目录，保证恢复、审计和上下文续接都可用
+16. task ID 遵循层级命名：主任务 `T-001`，子任务 `T-001-1`、`T-001-2`...; 不要对主任务和子任务使用平行编号如 `T-001`、`T-002`
+17. 创建或引用 member 时，必须使用和任务类型匹配的角色名，例如 `member-analysis`、`member-design`、`member-coding`、`member-testing`、`member-review`、`member-docs`、`member-release`、`member-integration`；即使工具返回不同的系统昵称，对外汇报和内部交接也要沿用任务类型匹配的角色名
+18. `member_role_name` 代表 canonical role；如果同一 role 需要并行多个 agent，应保持 `member_role_name` 不变，并使用不同的 `owner_agent_id`，例如 `member-coding-1`、`member-coding-2`
+19. 创建子任务时优先使用 `create_subtask.py`，把父子关系、member 分配、初始 progress 和 handoff 一次性落盘
+20. team leader 应优先使用 `create_subtask.py` 来一次性完成父子关系、member 分配和初始交接的落盘；汇报时继续沿用任务类型匹配的成员角色名
+21. member 之间允许直接发起 `consult` 或 `sync` 讨论，但讨论必须通过 `create_discussion.py`、`post_discussion_message.py`、`resolve_discussion.py` 落盘到 `.my-team/orchestrator-state/discussions/<discussion-id>`
 20. discussion artifact 至少要记录参与者、关联任务、消息流和决议；不要把关键讨论留在不可恢复的临时聊天里
 21. 长期事实、偏好、决策和约束应通过 `update_memory.py` 追加到 `MEMORY.md`
 22. 恢复前应先运行 `resume_readiness.py`，确认 workspace 和 task artifact 是否足够接续

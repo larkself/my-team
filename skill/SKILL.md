@@ -152,23 +152,28 @@ Return a brief summary of what was accomplished, what remains, and any blockers.
 ### Example
 
 ```python
-# Team leader creates the subtask first
-run_in_terminal("python3 scripts/create_subtask.py T-002 --parent-task-id T-001 --task-type analysis --goal '分析用户需求' --workspace .my-team")
+# Team leader creates the main task FIRST with init_task.py
+run_in_terminal("python3 scripts/init_task.py T-001 --goal '实现贪吃蛇游戏' --scope '浏览器单页游戏' --acceptance-criterion '可运行' --workspace .my-team")
+
+# Then creates subtasks with hierarchical IDs
+run_in_terminal("python3 scripts/create_subtask.py T-001-1 --parent-task-id T-001 --task-type analysis --goal '分析用户需求' --workspace .my-team")
 
 # Then dispatches real sub-agent
 runSubagent(
     prompt="You are member-analysis... (full context)",
-    description="analysis for T-002"
+    description="analysis for T-001-1"
 )
 
-# For parallel coding tasks
-runSubagent(prompt="You are member-coding (T-003)...", description="coding T-003")  # parallel
-runSubagent(prompt="You are member-coding (T-004)...", description="coding T-004")  # parallel
+# For parallel coding tasks (hierarchical IDs under same parent)
+runSubagent(prompt="You are member-coding (T-001-3)...", description="coding T-001-3")  # parallel
+runSubagent(prompt="You are member-coding (T-001-4)...", description="coding T-001-4")  # parallel
 ```
 
 ## Operating Rules
 
 - All skill runtime files (workspace, orchestrator-state, ai-chat, etc.) live under the `.my-team/` directory in the project root, keeping them separate from the project's own files
+- **Always create the main task first** with `init_task.py` (including goal, scope, acceptance criteria) before using `create_subtask.py` to add child tasks; never skip `init_task.py` — otherwise the parent task gets implicitly created as an empty shell with missing goal and scope
+- **Task ID naming**: main tasks use top-level numbers (`T-001`, `T-002`); subtasks use hierarchical `parent-seq` format (`T-001-1`, `T-001-2`); do not use flat sequential numbers for both main and sub tasks
 - Keep user-facing documents in Simplified Chinese
 - Keep internal agent notes in English under `internal/`
 - Keep state in JSON or JSONL
