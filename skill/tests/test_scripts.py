@@ -1343,6 +1343,43 @@ class ScriptCliTests(unittest.TestCase):
         ready_payload = json.loads(ready_result.stdout)
         self.assertEqual(ready_payload.get("incomplete_tasks", {}), {})
 
+    def test_load_state_recovers_from_empty_state_json(self) -> None:
+        """When state.json is empty (e.g. interrupted write), load_state
+        should auto-repair from the ledger instead of crashing."""
+        self.run_script(
+            "init_task.py",
+            "T-RECOVER",
+            "--goal",
+            "测试空 state.json 恢复",
+            "--scope",
+            "orchestrator_common.load_state 容错",
+        )
+
+        task_dir = self.task_dir("T-RECOVER")
+        state_path = task_dir / "state.json"
+        original_state = self.read_json(state_path)
+        self.assertEqual(original_state["goal"], "测试空 state.json 恢复")
+
+        # Simulate an interrupted write — truncate state.json to empty.
+        state_path.write_text("", encoding="utf-8")
+        self.assertEqual(state_path.read_text(encoding="utf-8"), "")
+
+        # write_result.py calls load_state internally — should succeed.
+        self.run_script(
+            "write_result.py",
+            "T-RECOVER",
+            "--summary",
+            "state.json 恢复后写入结果。",
+            "--completed",
+            "验证空 state.json 恢复",
+        )
+
+        # state.json should be repaired on disk.
+        recovered_state = self.read_json(state_path)
+        self.assertEqual(recovered_state["task_id"], "T-RECOVER")
+        self.assertIn(recovered_state["status"], {"completed"})
+        self.assertIn(recovered_state["phase"], {"completed"})
+
 
 if __name__ == "__main__":
     unittest.main()

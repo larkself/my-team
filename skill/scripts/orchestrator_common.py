@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -168,12 +170,42 @@ def load_json(path: Path, default: Any | None = None) -> Any:
         if default is None:
             raise FileNotFoundError(f"JSON file not found: {path}")
         return default
-    return json.loads(path.read_text(encoding="utf-8"))
+    raw = path.read_text(encoding="utf-8").strip()
+    if not raw:
+        if default is None:
+            raise ValueError(f"JSON file is empty: {path}")
+        print(f"WARNING: JSON file is empty, using default: {path}", file=sys.stderr)
+        return default
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        if default is None:
+            raise
+        print(f"WARNING: JSON file is corrupt, using default: {path}", file=sys.stderr)
+        return default
 
 
 def write_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    content = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+    # Atomic write: write to a temp file in the same directory, then rename.
+    # os.replace is atomic on POSIX, preventing empty/corrupt files on interruption.
+    fd, tmp_path = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    closed = False
+    try:
+        os.write(fd, content.encode("utf-8"))
+        os.fsync(fd)
+        os.close(fd)
+        closed = True
+        os.replace(tmp_path, path)
+    except BaseException:
+        if not closed:
+            os.close(fd)
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def append_jsonl(path: Path, payload: dict[str, Any]) -> None:
@@ -738,7 +770,20 @@ def save_ledger(state_root: Path, ledger: dict[str, Any]) -> None:
 
 def load_state(state_root: Path, task_id: str) -> dict[str, Any]:
     ensure_task_exists(state_root, task_id)
-    return load_json(task_file_map(state_root, task_id)["state"])
+    state_path = task_file_map(state_root, task_id)["state"]
+    try:
+        raw = state_path.read_text(encoding="utf-8").strip() if state_path.exists() else ""
+        if raw:
+            return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+    # state.json missing or empty/corrupt — rebuild from ledger and repair on disk.
+    print(f"WARNING: state.json for {task_id} is missing or corrupt, rebuilding from ledger.", file=sys.stderr)
+    ledger = load_ledger(state_root)
+    entry = ledger.get("tasks", {}).get(task_id)
+    state = task_state_from_ledger_entry(task_id, entry)
+    write_json(state_path, state)
+    return state
 
 
 def load_discussion_state(state_root: Path, discussion_id: str) -> dict[str, Any]:
