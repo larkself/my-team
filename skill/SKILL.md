@@ -172,6 +172,7 @@ Return a brief summary of what was accomplished, what remains, and any blockers.
 
 ```python
 # Team leader creates the main task FIRST with init_task.py
+# owner_agent_id defaults to 'main' — do NOT use 'team-leader'
 run_in_terminal("python3 scripts/init_task.py T-001 --goal '实现贪吃蛇游戏' --scope '浏览器单页游戏' --acceptance-criterion '可运行' --workspace .my-team")
 
 # Then creates subtasks with hierarchical IDs
@@ -192,6 +193,7 @@ runSubagent(prompt="You are member-coding (T-001-4)...", description="coding T-0
 
 - All skill runtime files (workspace, orchestrator-state, ai-chat, etc.) live under the `.my-team/` directory in the project root, keeping them separate from the project's own files
 - **Always create the main task first** with `init_task.py` (including goal, scope, acceptance criteria) before using `create_subtask.py` to add child tasks; never skip `init_task.py` — otherwise the parent task gets implicitly created as an empty shell with missing goal and scope
+- **Main task `owner_agent_id` must be `main`** — do NOT use `team-leader`, `leader`, or any other non-standard value; `main` is the only valid identifier for the team leader's own tasks
 - **Task ID naming**: main tasks use top-level numbers (`T-001`, `T-002`); subtasks use hierarchical `parent-seq` format (`T-001-1`, `T-001-2`); do not use flat sequential numbers for both main and sub tasks
 - Keep user-facing documents in Simplified Chinese
 - Keep internal agent notes in English under `internal/`

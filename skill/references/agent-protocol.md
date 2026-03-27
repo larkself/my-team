@@ -35,6 +35,7 @@
 16. task ID 遵循层级命名：主任务 `T-001`，子任务 `T-001-1`、`T-001-2`...; 不要对主任务和子任务使用平行编号如 `T-001`、`T-002`
 17. 创建或引用 member 时，必须使用和任务类型匹配的角色名，例如 `member-analysis`、`member-design`、`member-coding`、`member-testing`、`member-review`、`member-docs`、`member-release`、`member-integration`；即使工具返回不同的系统昵称，对外汇报和内部交接也要沿用任务类型匹配的角色名
 18. `member_role_name` 代表 canonical role；如果同一 role 需要并行多个 agent，应保持 `member_role_name` 不变，并使用不同的 `owner_agent_id`，例如 `member-coding-1`、`member-coding-2`
+19a. 主任务（team leader 自身持有的任务）的 `owner_agent_id` 必须为 `main`，**不能**写成 `team-leader`、`leader` 或其他非规范值；`team-leader` 不是合法的 `owner_agent_id`
 19. 创建子任务时优先使用 `create_subtask.py`，把父子关系、member 分配、初始 progress 和 handoff 一次性落盘
 20. team leader 应优先使用 `create_subtask.py` 来一次性完成父子关系、member 分配和初始交接的落盘；汇报时继续沿用任务类型匹配的成员角色名
 21. member 之间允许直接发起 `consult` 或 `sync` 讨论，但讨论必须通过 `create_discussion.py`、`post_discussion_message.py`、`resolve_discussion.py` 落盘到 `.my-team/orchestrator-state/discussions/<discussion-id>`
