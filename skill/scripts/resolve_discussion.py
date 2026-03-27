@@ -6,7 +6,6 @@ import argparse
 from orchestrator_common import (
     append_jsonl,
     append_progress_log,
-    append_workspace_memory_entries,
     append_workspace_session_note,
     discussion_file_map,
     ensure_discussion_exists,
@@ -104,12 +103,6 @@ def main() -> int:
             ts=now,
         )
 
-    append_workspace_memory_entries(
-        workspace_root,
-        [("decision", f"discussion {args.discussion_id} resolved: {args.summary}")],
-        source="resolve_discussion.py",
-        ts=now,
-    )
     append_workspace_session_note(
         workspace_root,
         f"discussion {args.discussion_id} resolved",

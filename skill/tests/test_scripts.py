@@ -288,7 +288,6 @@ class ScriptCliTests(unittest.TestCase):
         self.assertIn("修订版本：2", summary)
         self.assertIn("Workspace / Resume", summary)
         self.assertIn("resume_owner", summary)
-        self.assertIn("checkpoint_task.py updated T-003 to phase planning and status in_progress", self.read_text(self.workspace / "MEMORY.md"))
         self.assertIn("checkpoint recorded for T-003", self.read_text(self.workspace / "SESSIONS" / "current.md"))
 
     def test_task_md_syncs_with_state_changes_and_parent_placeholder_is_shaped(self) -> None:
@@ -876,7 +875,6 @@ class ScriptCliTests(unittest.TestCase):
         progress_text = self.read_text(self.task_dir("T-019") / "progress.log")
         self.assertIn("review 子任务已创建", progress_text)
         self.assertIn("subtask T-019 created", self.read_text(self.workspace / "SESSIONS" / "current.md"))
-        self.assertIn("create_subtask.py assigned T-019 to member-review", self.read_text(self.workspace / "MEMORY.md"))
 
         events_text = self.read_text(self.task_dir("T-019") / "events.jsonl")
         self.assertIn('"type": "subtask_created"', events_text)
@@ -920,8 +918,8 @@ class ScriptCliTests(unittest.TestCase):
         handoff_text = self.read_text(self.task_dir("T-019A") / "internal" / "handoff.en.md")
         self.assertIn("Current checkpoint: subtask created for member-coding-2 (role member-coding)", handoff_text)
 
-        memory_text = self.read_text(self.workspace / "MEMORY.md")
-        self.assertIn("create_subtask.py assigned T-019A to member-coding-2 (role member-coding)", memory_text)
+        session_text = self.read_text(self.workspace / "SESSIONS" / "current.md")
+        self.assertIn("subtask T-019A created", session_text)
 
     def test_member_discussion_flow_creates_artifacts_and_resolution(self) -> None:
         self.run_script("init_task.py", "T-020", "--goal", "验证成员讨论归档")
@@ -1001,8 +999,6 @@ class ScriptCliTests(unittest.TestCase):
         self.assertIn("成员讨论 D-001 已启动", progress_text)
         self.assertIn("成员讨论 D-001 已收敛", progress_text)
 
-        memory_text = self.read_text(self.workspace / "MEMORY.md")
-        self.assertIn("discussion D-001 resolved: 双方确认统一返回 code/message/data", memory_text)
         session_text = self.read_text(self.workspace / "SESSIONS" / "current.md")
         self.assertIn("discussion D-001 opened", session_text)
         self.assertIn("discussion D-001 resolved", session_text)

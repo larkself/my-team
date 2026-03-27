@@ -6,7 +6,6 @@ import argparse
 from orchestrator_common import (
     append_jsonl,
     append_progress_log,
-    append_workspace_memory_entries,
     append_workspace_session_note,
     canonical_member_role_name,
     ensure_state_root,
@@ -126,18 +125,6 @@ def main() -> int:
         owner_agent_id,
     )
     write_text(paths["handoff"], handoff_text.rstrip() + "\n")
-    append_workspace_memory_entries(
-        workspace_root,
-        [
-            (
-                "decision",
-                f"create_subtask.py assigned {args.task_id} to {owner_agent_id} (role {member_role_name}) under {args.parent_task_id}",
-            ),
-            ("fact", f"subtask {args.task_id} goal: {args.goal}"),
-        ],
-        source="create_subtask.py",
-        ts=now,
-    )
     append_workspace_session_note(
         workspace_root,
         f"subtask {args.task_id} created",

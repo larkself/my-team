@@ -7,7 +7,6 @@ from orchestrator_common import (
     append_jsonl,
     append_transition_events,
     append_progress_log,
-    append_workspace_memory_entries,
     append_workspace_session_note,
     ensure_state_root,
     ensure_task_exists,
@@ -82,14 +81,6 @@ def main() -> int:
 
     persist_state_snapshot(state_root, args.task_id, state)
     append_transition_events(paths["events"], args.task_id, previous_state, state, ts=now)
-    append_workspace_memory_entries(
-        workspace_root,
-        [
-            ("decision", f"checkpoint_task.py updated {args.task_id} to phase {state.get('phase')} and status {state.get('status')}"),
-        ],
-        source="checkpoint_task.py",
-        ts=now,
-    )
     append_workspace_session_note(
         workspace_root,
         f"checkpoint recorded for {args.task_id}",
