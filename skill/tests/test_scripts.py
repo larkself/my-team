@@ -566,6 +566,85 @@ class ScriptCliTests(unittest.TestCase):
         session_text = self.read_text(self.workspace / "SESSIONS" / "current.md")
         self.assertIn("memory updated", session_text)
 
+    # -- extract_knowledge tests ------------------------------------------------
+
+    def _create_chat_log(self, filename: str, content: str) -> Path:
+        ai_chat_dir = self.workspace / "ai-chat"
+        ai_chat_dir.mkdir(parents=True, exist_ok=True)
+        log_path = ai_chat_dir / filename
+        log_path.write_text(content, encoding="utf-8")
+        return log_path
+
+    def test_extract_knowledge_list_shows_chat_logs(self) -> None:
+        self.run_script("bootstrap_workspace.py", workspace=self.workspace)
+        self._create_chat_log("2026-03-25.md", "# 2026-03-25 聊天记录\n\n## 10:00:00 用户\n\n你好\n")
+        result = self.run_script("extract_knowledge.py", "--list", workspace=self.workspace)
+        self.assertIn("2026-03-25.md", result.stdout)
+        self.assertIn("1 file(s)", result.stdout)
+
+    def test_extract_knowledge_dump_outputs_chat_content(self) -> None:
+        self.run_script("bootstrap_workspace.py", workspace=self.workspace)
+        self._create_chat_log("2026-03-25.md", "# 2026-03-25 聊天记录\n\n## 10:00:00 用户\n\n你好\n")
+        result = self.run_script("extract_knowledge.py", "--dump", workspace=self.workspace)
+        self.assertIn("你好", result.stdout)
+
+    def test_extract_knowledge_saves_entries_and_clears_logs(self) -> None:
+        self.run_script("bootstrap_workspace.py", workspace=self.workspace)
+        self._create_chat_log("2026-03-25.md", "# 2026-03-25 聊天记录\n\n## 10:00:00 用户\n\n讨论了API设计\n")
+        self.run_script(
+            "extract_knowledge.py",
+            "--fact", "API使用RESTful风格",
+            "--decision", "统一返回JSON格式",
+            "--clear",
+            workspace=self.workspace,
+        )
+        memory_text = self.read_text(self.workspace / "MEMORY.md")
+        self.assertIn("fact: API使用RESTful风格", memory_text)
+        self.assertIn("decision: 统一返回JSON格式", memory_text)
+        self.assertIn("extract_knowledge.py", memory_text)
+        # Chat log should have been removed
+        self.assertFalse((self.workspace / "ai-chat" / "2026-03-25.md").exists())
+        session_text = self.read_text(self.workspace / "SESSIONS" / "current.md")
+        self.assertIn("chat logs cleared", session_text)
+
+    def test_extract_knowledge_archive_moves_logs(self) -> None:
+        self.run_script("bootstrap_workspace.py", workspace=self.workspace)
+        self._create_chat_log("2026-03-25.md", "# chat\n")
+        self.run_script(
+            "extract_knowledge.py",
+            "--fact", "项目使用Python",
+            "--archive",
+            workspace=self.workspace,
+        )
+        # Original log should be gone
+        self.assertFalse((self.workspace / "ai-chat" / "2026-03-25.md").exists())
+        # Archive directory should have the file
+        archive_dir = self.workspace / "ai-chat" / "archive"
+        self.assertTrue(archive_dir.exists())
+        archived_files = list(archive_dir.rglob("2026-03-25.md"))
+        self.assertEqual(len(archived_files), 1)
+
+    def test_extract_knowledge_dry_run_does_not_modify(self) -> None:
+        self.run_script("bootstrap_workspace.py", workspace=self.workspace)
+        self._create_chat_log("2026-03-25.md", "# chat\n")
+        self.run_script(
+            "extract_knowledge.py",
+            "--fact", "测试dry-run",
+            "--clear",
+            "--dry-run",
+            workspace=self.workspace,
+        )
+        # Knowledge should still be saved even in dry-run (dry-run only affects log cleanup)
+        memory_text = self.read_text(self.workspace / "MEMORY.md")
+        self.assertIn("fact: 测试dry-run", memory_text)
+        # Log should still exist
+        self.assertTrue((self.workspace / "ai-chat" / "2026-03-25.md").exists())
+
+    def test_extract_knowledge_no_args_fails(self) -> None:
+        self.run_script("bootstrap_workspace.py", workspace=self.workspace)
+        result = self.run_script("extract_knowledge.py", workspace=self.workspace, check=False)
+        self.assertNotEqual(result.returncode, 0)
+
     def test_resume_readiness_reports_missing_and_ready_states(self) -> None:
         self.run_script("bootstrap_workspace.py", workspace=self.workspace)
 

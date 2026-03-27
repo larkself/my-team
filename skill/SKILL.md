@@ -11,8 +11,6 @@ Use this skill when you need one team leader to stay user-facing, coordinate a t
 
 The team leader should first be able to delegate analysis and task breakdown to one member, then assign the resulting work to other members for implementation, testing, and verification.
 
-Once the main agent is asked to start the `my-team` skill, it should keep operating in my-team mode until the user explicitly asks to exit my-team mode.
-
 ## References
 
 Read [references/agent-protocol.md](references/agent-protocol.md) for the operating protocol and checkpoint rules.
@@ -47,6 +45,7 @@ Prefer the local scripts in `scripts/` over handwritten edits to machine-readabl
 - `suggest_doc_updates.py`
 - `record_doc_refresh.py`
 - `render_summary.py`
+- `extract_knowledge.py`
 
 ## Team View Helpers
 
@@ -58,6 +57,7 @@ Prefer the local scripts in `scripts/` over handwritten edits to machine-readabl
 - `bootstrap_workspace.py` to initialize TEAM/MEMORY/USER_CONTEXT/ROLES/INBOX/SESSIONS/current.md
 - `update_memory.py` to append structured facts, decisions, preferences, and constraints
 - `resume_readiness.py` to inspect workspace + orchestrator-state before resuming work
+- `extract_knowledge.py` to read chat logs, save extracted knowledge to MEMORY.md, and clear/archive history
 
 ## Workspace Layer
 
@@ -99,6 +99,18 @@ For this layer, prefer three helper scripts:
 - `resume_readiness.py` to check whether the current workspace and task state are safe to resume
 
 The team leader should bootstrap the workspace before the first long-lived session, refresh memory after confirmed decisions or repeated facts, and check resume readiness before continuing after interruption.
+
+## Knowledge Extraction Workflow
+
+Periodically extract durable knowledge from chat logs to keep MEMORY.md current and history clean:
+
+1. Use `extract_knowledge.py --dump` to read all chat log content.
+2. Review the output and identify facts, decisions, preferences, and constraints worth preserving.
+3. Run `extract_knowledge.py --fact '...' --decision '...' --archive` to save knowledge entries to MEMORY.md and move processed logs to `ai-chat/archive/<date>/`.
+4. Alternatively use `--clear` instead of `--archive` to delete the logs outright.
+5. Use `--dry-run` with `--clear` or `--archive` to preview what would happen.
+
+The team leader should run this workflow when chat logs accumulate significantly, or before a long interruption, to ensure key learnings are preserved in MEMORY.md rather than buried in logs.
 
 ## Document Refresh Workflow
 
@@ -195,7 +207,6 @@ runSubagent(prompt="You are member-coding (T-001-4)...", description="coding T-0
 - The team leader should use `bootstrap_workspace.py`, `update_memory.py`, and `resume_readiness.py` to manage persistent workspace state and recoverability
 - **Task close-out**: when all subtasks under a main task are completed, the team leader must explicitly close the main task — use `update_state.py --phase completed --status completed`, then `checkpoint_task.py`, then `write_result.py` for the final summary; also update `SESSIONS/current.md` snapshot to completed; without explicit close-out, `resume_readiness.py` will keep reporting the task as active
 - **Scaffold repair**: if `resume_readiness.py` reports `incomplete_tasks` (ledger entry exists but task directory is missing files), run `init_task.py <task-id> --repair --goal '...' --scope '...'` to fill in missing scaffold files before proceeding; always repair before dispatching new subtasks under that parent
-- After my-team mode is activated, the main agent should keep following this team leader / member model until the user explicitly says to exit my-team mode
 - The installed skill name is fixed to `my-team`; do not treat it as a user-configurable rename target inside this skill
 - The only valid task phases are `received`, `analysis`, `design`, `planning`, `executing`, `reporting`, `completed`, `interrupted`, and `revising`; do not invent `intake` or other phase names
 - `handoff.en.md` is a formal internal transition record for team members, not a scaffold placeholder; describe remaining work, blockers, next actions, and ownership without exposing internal template language to the user
