@@ -1455,6 +1455,143 @@ class ScriptCliTests(unittest.TestCase):
         self.assertIn(recovered_state["status"], {"completed"})
         self.assertIn(recovered_state["phase"], {"completed"})
 
+    def test_request_help_creates_artifacts_and_events(self) -> None:
+        self.run_script("init_task.py", "T-030", "--goal", "验证成员协助请求")
+        self.run_script(
+            "create_subtask.py",
+            "T-030-1",
+            "--parent-task-id", "T-030",
+            "--task-type", "coding",
+            "--goal", "实现核心模块",
+            workspace=self.workspace,
+        )
+
+        self.run_script(
+            "request_help.py",
+            "HR-001",
+            "--task-id", "T-030-1",
+            "--requester", "member-coding-1",
+            "--title", "数据库迁移脚本",
+            "--description", "发现需要一个独立的数据库迁移任务，工作量较大且可独立完成",
+            "--suggested-task-type", "coding",
+            "--urgency", "high",
+            "--reason", "迁移逻辑和核心模块无耦合",
+            workspace=self.workspace,
+        )
+
+        # Help request JSON should exist in global help-requests dir
+        hr_path = self.state_root / "help-requests" / "HR-001.json"
+        self.assertTrue(hr_path.exists())
+        hr_data = self.read_json(hr_path)
+        self.assertEqual(hr_data["request_id"], "HR-001")
+        self.assertEqual(hr_data["source_task_id"], "T-030-1")
+        self.assertEqual(hr_data["requester"], "member-coding-1")
+        self.assertEqual(hr_data["title"], "数据库迁移脚本")
+        self.assertEqual(hr_data["urgency"], "high")
+        self.assertEqual(hr_data["status"], "pending")
+
+        # Help request summary should exist in the task's internal dir
+        hr_task_md = self.task_dir("T-030-1") / "internal" / "help-requests" / "HR-001.md"
+        self.assertTrue(hr_task_md.exists())
+        hr_md_text = self.read_text(hr_task_md)
+        self.assertIn("member-coding-1", hr_md_text)
+        self.assertIn("数据库迁移脚本", hr_md_text)
+
+        # Event should be in the source task
+        events_text = self.read_text(self.task_dir("T-030-1") / "events.jsonl")
+        self.assertIn('"type": "help_requested"', events_text)
+        self.assertIn('"request_id": "HR-001"', events_text)
+
+        # Progress log should mention the help request
+        progress_text = self.read_text(self.task_dir("T-030-1") / "progress.log")
+        self.assertIn("协助请求 HR-001", progress_text)
+
+        # Session note should be written
+        session_text = self.read_text(self.workspace / "SESSIONS" / "current.md")
+        self.assertIn("help request HR-001 created", session_text)
+
+        # Duplicate should fail
+        dup_result = self.run_script_allow_failure(
+            "request_help.py",
+            "HR-001",
+            "--task-id", "T-030-1",
+            "--requester", "member-coding-1",
+            "--title", "duplicate",
+            "--description", "duplicate",
+            workspace=self.workspace,
+        )
+        self.assertNotEqual(dup_result.returncode, 0)
+
+    def test_share_knowledge_creates_and_lists_entries(self) -> None:
+        self.run_script("init_task.py", "T-031", "--goal", "验证知识共享")
+        self.run_script("init_task.py", "T-032", "--goal", "验证知识接收")
+
+        self.run_script(
+            "share_knowledge.py",
+            "--task-id", "T-031",
+            "--author", "member-analysis-1",
+            "--topic", "API 认证方案",
+            "--content", "项目使用 OAuth 2.0 + JWT，token 有效期 1 小时",
+            "--tag", "auth",
+            "--tag", "api",
+            "--target-task", "T-032",
+            workspace=self.workspace,
+        )
+
+        # Knowledge entry should exist
+        kb_dir = self.state_root / "knowledge-board"
+        self.assertTrue(kb_dir.exists())
+        entries = list(kb_dir.glob("KB-*.json"))
+        self.assertEqual(len(entries), 1)
+        kb_data = self.read_json(entries[0])
+        self.assertEqual(kb_data["entry_id"], "KB-001")
+        self.assertEqual(kb_data["author"], "member-analysis-1")
+        self.assertEqual(kb_data["topic"], "API 认证方案")
+        self.assertIn("OAuth 2.0", kb_data["content"])
+        self.assertEqual(kb_data["tags"], ["auth", "api"])
+        self.assertEqual(kb_data["target_task_ids"], ["T-032"])
+
+        # Source task should have knowledge_shared event
+        events_text = self.read_text(self.task_dir("T-031") / "events.jsonl")
+        self.assertIn('"type": "knowledge_shared"', events_text)
+
+        # Target task should have knowledge_received event
+        target_events = self.read_text(self.task_dir("T-032") / "events.jsonl")
+        self.assertIn('"type": "knowledge_received"', target_events)
+        self.assertIn('"entry_id": "KB-001"', target_events)
+
+        # Progress log on source task
+        progress_text = self.read_text(self.task_dir("T-031") / "progress.log")
+        self.assertIn("知识条目 KB-001", progress_text)
+
+        # Session note
+        session_text = self.read_text(self.workspace / "SESSIONS" / "current.md")
+        self.assertIn("knowledge KB-001 shared by member-analysis-1", session_text)
+
+        # --list should show the entry
+        list_result = self.run_script("share_knowledge.py", "--list")
+        self.assertIn("KB-001", list_result.stdout)
+        self.assertIn("API 认证方案", list_result.stdout)
+
+        # --read should show the entry content
+        read_result = self.run_script("share_knowledge.py", "--read", "KB-001")
+        self.assertIn("OAuth 2.0", read_result.stdout)
+        self.assertIn("member-analysis-1", read_result.stdout)
+
+        # Second entry should auto-increment ID
+        self.run_script(
+            "share_knowledge.py",
+            "--task-id", "T-031",
+            "--author", "member-analysis-1",
+            "--topic", "数据库选型",
+            "--content", "使用 PostgreSQL 16",
+            workspace=self.workspace,
+        )
+        entries_after = list(kb_dir.glob("KB-*.json"))
+        self.assertEqual(len(entries_after), 2)
+        kb2_data = self.read_json(kb_dir / "KB-002.json")
+        self.assertEqual(kb2_data["entry_id"], "KB-002")
+
 
 if __name__ == "__main__":
     unittest.main()

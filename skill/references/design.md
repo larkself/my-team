@@ -14,6 +14,8 @@
 - 如果工具返回了不同的系统昵称，team leader 在对外汇报、任务跟踪和交接时仍应使用任务类型匹配的角色名
 - team leader 需要把任务分配给了谁、完成情况如何、还有哪些阻塞及时反馈给用户
 - member 之间的直接讨论应通过 discussion artifact 进行，而不是无记录聊天；讨论必须能关联任务、参与者和最终决议
+- member 执行任务过程中发现潜藏的大工作量任务且该任务可独立开来时，可通过 `request_help.py` 请求 team leader 安排新的 member 来协作完成
+- member 之间可通过共享知识看板（`share_knowledge.py`）分享知识来共同完成任务；知识条目保存在 `orchestrator-state/knowledge-board/`
 - 启动 my-team 模式后，除非收到退出指令，否则持续按该模式调度成员
 - 在 VS Code Copilot 中，team leader 应使用 `runSubagent` 来调度真正的子 agent 执行 member 工作，而不是顺序地角色扮演不同成员；独立任务应并行发出多个 `runSubagent` 调用
 
@@ -40,6 +42,8 @@
 - `create_discussion.py`：创建成员讨论，并记录模式、参与者、关联任务和主题
 - `post_discussion_message.py`：向成员讨论追加消息流
 - `resolve_discussion.py`：把讨论决议落盘，并同步回关联任务
+- `request_help.py`：member 在执行中发现独立大工作量任务时，向 team leader 提交协助请求
+- `share_knowledge.py`：member 之间通过共享知识看板分享和阅读知识条目
 - `render_summary.py`：用于输出 team leader 视角的状态面板，支持按 owner、任务类型、状态和阻塞态聚合，并能把同 role 的不同实例分开显示
 - `bootstrap_workspace.py`：初始化长期 workspace 的 bootstrap 文件结构
 - `update_memory.py`：把事实、决策、偏好和约束写入 workspace memory

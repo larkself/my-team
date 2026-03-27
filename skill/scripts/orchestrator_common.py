@@ -233,6 +233,14 @@ def discussions_dir(state_root: Path) -> Path:
     return state_root / "discussions"
 
 
+def help_requests_dir(state_root: Path) -> Path:
+    return state_root / "help-requests"
+
+
+def knowledge_board_dir(state_root: Path) -> Path:
+    return state_root / "knowledge-board"
+
+
 def workspace_paths(workspace_root: Path) -> dict[str, Path]:
     return {
         "root": workspace_root,

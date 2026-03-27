@@ -27,7 +27,8 @@
 9. 基于 artifact 汇总后再对用户输出，并把主 Agent 回复追加到当日聊天日志；在这个 skill 里主 Agent 充当 team leader
 10. 持续向用户汇报任务进展、阻塞点和下一步协调动作
 11. 及时反馈"任务分配给了谁""当前完成情况如何""哪些任务仍在进行、等待或阻塞"
-12. 一旦收到启动 `my-team` skill 的指令，就持续按 my-team 模式执行，直到收到"退出 my-team 模式"的明确指令
+12. 当 member 通过 `request_help.py` 提交协助请求时，team leader 应检查 `.my-team/orchestrator-state/help-requests/` 下的 pending 请求，评估后用 `create_subtask.py` 创建新子任务并调度新 member；同时可通过知识看板帮助新旧 member 共享上下文
+13. 一旦收到启动 `my-team` skill 的指令，就持续按 my-team 模式执行，直到收到"退出 my-team 模式"的明确指令
 13. 只使用合法阶段 `received`、`analysis`、`design`、`planning`、`executing`、`reporting`、`completed`、`interrupted`、`revising`，不要引入 `intake` 或其他未定义阶段
 14. 每个子任务都必须在 `.my-team/orchestrator-state/tasks/<task-id>` 下有实体存档；`ledger.json` 只能记录索引，不能替代任务目录
 15. 如果父任务是通过子任务关系首次被发现，也要为该父任务创建对应任务目录，保证恢复、审计和上下文续接都可用
@@ -64,6 +65,8 @@ Team leader constraints:
 - keep `member_role_name` canonical and use distinct `owner_agent_id` values when the same role is running multiple parallel member instances
 - use `create_subtask.py` for new child tasks so parent linkage and initial handoff stay consistent
 - allow member-to-member discussion only when it is recorded as a discussion artifact under `.my-team/orchestrator-state/discussions/` with participants, linked tasks, and a final decision
+- when a member submits a help request via `request_help.py`, check `.my-team/orchestrator-state/help-requests/` for pending requests after the sub-agent returns; create new subtasks and dispatch new members as appropriate
+- encourage members to share knowledge via `share_knowledge.py`; include relevant knowledge board entries in dispatch prompts for new members working on related tasks
 - explicitly report task ownership, completion status, and blocked work back to the user
 - stay in my-team mode until the user explicitly asks to exit it
 - all skill runtime files (workspace state, orchestrator-state, ai-chat) live under `.my-team/` in the project root
@@ -110,6 +113,29 @@ python3 scripts/init_task.py <task-id> --repair --goal '目标' --scope '范围'
 3. 接收 team leader 分配的局部任务并补齐分析、设计、计划、执行记录和结果
 4. 在执行步骤前后写入状态、步骤、事件和进度日志
 5. 中断时更新 `handoff.en.md`，把可恢复信息交回 team leader；handoff 是正式交接记录，不是脚手架占位文件
+6. 如果在执行过程中发现潜藏的大工作量任务且该任务可独立开来，使用 `request_help.py` 提交协助请求，由 team leader 安排新的 member 来协作完成
+7. 使用 `share_knowledge.py` 把执行过程中获得的、对其他 member 有价值的知识写入共享知识看板
+8. 执行前可通过 `share_knowledge.py --list` 和 `share_knowledge.py --read <entry-id>` 查阅其他 member 分享的知识
+
+## Member Help Request Flow
+
+当 member 在执行任务过程中发现一个大工作量且可独立的子工作时：
+
+1. member 使用 `request_help.py` 创建一个协助请求，描述发现的工作、建议的任务类型和紧急程度
+2. 协助请求会写入 `.my-team/orchestrator-state/help-requests/` 和当前任务的 `internal/help-requests/`
+3. member 在返回 team leader 的摘要中提及该协助请求
+4. team leader 读取协助请求后，决定是否创建新的子任务并调度新的 member
+5. team leader 与发起请求的 member 保持协调，确保知识交接和任务边界清晰
+
+## Knowledge Sharing Between Members
+
+成员之间可通过共享知识看板分享执行过程中获取的知识：
+
+1. member 使用 `share_knowledge.py` 写入知识条目，可指定标签和目标任务
+2. 知识条目保存在 `.my-team/orchestrator-state/knowledge-board/`
+3. 其他 member 可通过 `share_knowledge.py --list` 列出所有知识条目，通过 `--read <entry-id>` 阅读具体条目
+4. team leader 在调度新 member 时，可在 dispatch prompt 中包含相关知识条目的内容
+5. 如果 member 指定了 `--target-task`，目标任务的 events.jsonl 会收到 `knowledge_received` 事件通知
 
 ## Document Refresh Loop
 

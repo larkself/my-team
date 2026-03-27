@@ -46,6 +46,8 @@ Prefer the local scripts in `scripts/` over handwritten edits to machine-readabl
 - `record_doc_refresh.py`
 - `render_summary.py`
 - `extract_knowledge.py`
+- `request_help.py`
+- `share_knowledge.py`
 
 ## Team View Helpers
 
@@ -53,6 +55,8 @@ Prefer the local scripts in `scripts/` over handwritten edits to machine-readabl
 - `create_discussion.py` to open a member-to-member consult/sync thread with participants and linked tasks
 - `post_discussion_message.py` to append one auditable member message to a discussion
 - `resolve_discussion.py` to record the decision, resolve the discussion, and sync the outcome back to linked tasks
+- `request_help.py` for a member to signal the team leader that it discovered independent work needing a new member
+- `share_knowledge.py` for members to share knowledge entries on a shared board that other members can read
 - `render_summary.py` as the team leader's status panel, with grouped owner/task-type/status views, blocked-task filtering, and owner-level separation for same-role parallel instances
 - `bootstrap_workspace.py` to initialize TEAM/MEMORY/USER_CONTEXT/ROLES/INBOX/SESSIONS/current.md
 - `update_memory.py` to append structured facts, decisions, preferences, and constraints
@@ -150,13 +154,16 @@ Scripts directory: {scripts_dir}
 
 Your job:
 1. Read the task directory at {state_root}/tasks/{task_id}/
-2. Perform the {task_type} work described in the goal
-3. Write your analysis/design/code/test results using the scripts:
+2. Check the knowledge board for relevant entries: share_knowledge.py --list --state-root {state_root}
+3. Perform the {task_type} work described in the goal
+4. Write your analysis/design/code/test results using the scripts:
    - write_analysis.py / write_design.py / write_plan.py / write_result.py
    - update_state.py to advance phase
    - update_step.py to track progress
    - checkpoint_task.py when reaching milestones
-4. Update handoff.en.md with recovery info when done
+5. If you discover large independent work, use request_help.py to ask the team leader to assign a new member
+6. Share useful knowledge with share_knowledge.py so other members can benefit
+7. Update handoff.en.md with recovery info when done
 
 Return a brief summary of what was accomplished, what remains, and any blockers.
 ```

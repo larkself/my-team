@@ -13,6 +13,8 @@
 - **8 种标准角色**：使用 task-type matched member names —— `member-analysis`、`member-design`、`member-coding`、`member-testing`、`member-review`、`member-docs`、`member-release`、`member-integration`
 - **同角色多实例**：同一角色可并行多个实例（如 `member-coding-1`、`member-coding-2`）
 - **成员间讨论机制**：支持 consult/sync 模式的结构化讨论，决议可回写关联任务
+- **成员协助请求**：member 执行中发现独立大工作量任务时，可请求 team leader 安排新 member 协作
+- **共享知识看板**：member 之间可通过知识看板分享和阅读知识条目，支持跨任务知识传递
 - **Workspace 持久层**：跨会话保持团队契约、记忆、角色说明等长期状态
 - **统一 `.my-team/` 目录**：所有 skill 运行时文件放在项目根的 `.my-team/` 下，和项目自身文件隔离
 - **任务全生命周期管理**：从 received → analysis → design → planning → executing → reporting → completed，支持 interrupted 和 revising
@@ -54,6 +56,8 @@ skill/
 │   ├── create_discussion.py
 │   ├── post_discussion_message.py
 │   ├── resolve_discussion.py
+│   ├── request_help.py
+│   ├── share_knowledge.py
 │   ├── bootstrap_workspace.py
 │   ├── update_memory.py
 │   └── resume_readiness.py
@@ -188,6 +192,8 @@ python3 scripts/bootstrap_workspace.py --workspace .my-team
 | `create_discussion.py` | 创建成员间讨论 |
 | `post_discussion_message.py` | 向讨论追加消息 |
 | `resolve_discussion.py` | 记录讨论决议并同步回任务 |
+| `request_help.py` | 成员请求 team leader 安排新成员协助 |
+| `share_knowledge.py` | 成员间共享知识条目 |
 | `render_summary.py` | 输出团队状态面板 |
 | `bootstrap_workspace.py` | 初始化 workspace |
 | `update_memory.py` | 更新长期记忆 |
